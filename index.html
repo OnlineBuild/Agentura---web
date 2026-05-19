@@ -1365,6 +1365,22 @@
     .team-bio-shared {
       text-align: center;
     }
+
+    /* Email odkazy - touch podpora */
+    .hero-email-hint a,
+    .footer-email,
+    .cta-email,
+    a[href^="mailto"] {
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(6, 182, 212, 0.2);
+      display: inline-block;
+      padding: 8px 4px;
+      opacity: 1;
+    }
+    .hero-email-hint {
+      opacity: 1;
+    }
   }
 
   @media (max-width: 400px) {
