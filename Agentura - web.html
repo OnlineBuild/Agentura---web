@@ -63,6 +63,22 @@
     pointer-events: none;
   }
 
+  .bg-fallback {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(13,20,34,0.8) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,20,34,0.8) 1px, transparent 1px),
+      radial-gradient(ellipse at 70% 50%, rgba(59,130,246,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 20% 80%, rgba(6,182,212,0.06) 0%, transparent 50%),
+      var(--bg);
+    background-size: 60px 60px, 60px 60px, 100% 100%, 100% 100%, 100% 100%;
+    display: none;
+  }
+
   nav {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -1399,6 +1415,7 @@
 <div class="cursor" id="cursor"></div>
 <div class="cursor-ring" id="cursorRing"></div>
 <canvas id="canvas3d"></canvas>
+<div class="bg-fallback" id="bgFallback"></div>
 
 <nav>
   <div class="logo">OB</div>
@@ -1818,61 +1835,77 @@ document.querySelectorAll('a,button').forEach(el => {
   el.addEventListener('mouseleave', () => { cursor.style.width='12px'; cursor.style.height='12px'; cursor.style.background='var(--accent)'; });
 });
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), alpha: true, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-camera.position.z = 30;
+// WebGL s fallbackem pro Chrome Android
+function initWebGL() {
+  try {
+    const canvas = document.getElementById('canvas3d');
+    // Test WebGL support
+    const testCtx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!testCtx) throw new Error('WebGL not supported');
 
-const particleCount = 2000;
-const geo = new THREE.BufferGeometry();
-const positions = new Float32Array(particleCount * 3);
-const sizes = new Float32Array(particleCount);
-for (let i = 0; i < particleCount; i++) {
-  positions[i*3] = (Math.random()-.5)*120;
-  positions[i*3+1] = (Math.random()-.5)*120;
-  positions[i*3+2] = (Math.random()-.5)*80;
-  sizes[i] = Math.random()*1.5+.3;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: window.devicePixelRatio < 2, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    camera.position.z = 30;
+
+    const particleCount = window.innerWidth < 768 ? 800 : 2000;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    for (let i = 0; i < particleCount; i++) {
+      positions[i*3] = (Math.random()-.5)*120;
+      positions[i*3+1] = (Math.random()-.5)*120;
+      positions[i*3+2] = (Math.random()-.5)*80;
+      sizes[i] = Math.random()*1.5+.3;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    const mat = new THREE.PointsMaterial({ color: 0x3b82f6, size: 0.15, transparent: true, opacity: 0.6, sizeAttenuation: true });
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(12, 2), new THREE.MeshBasicMaterial({ color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.15 }));
+    sphere.position.set(25, -5, -10);
+    scene.add(sphere);
+    const sphere2 = new THREE.Mesh(new THREE.IcosahedronGeometry(6, 2), new THREE.MeshBasicMaterial({ color: 0x06b6d4, wireframe: true, transparent: true, opacity: 0.1 }));
+    sphere2.position.set(-20, 10, -5);
+    scene.add(sphere2);
+    const grid = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), new THREE.MeshBasicMaterial({ color: 0x0d1422, wireframe: true, transparent: true, opacity: 0.2 }));
+    grid.rotation.x = -Math.PI/3; grid.position.y = -20; grid.position.z = -10;
+    scene.add(grid);
+
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', e => { mouseX = (e.clientX/window.innerWidth-.5)*.5; mouseY = (e.clientY/window.innerHeight-.5)*.3; });
+
+    let t = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      t += 0.003;
+      particles.rotation.y = t*.05; particles.rotation.x = t*.02;
+      sphere.rotation.y = t*.3; sphere.rotation.x = t*.2;
+      sphere2.rotation.y = -t*.2; sphere2.rotation.z = t*.1;
+      camera.position.x += (mouseX*8 - camera.position.x)*.02;
+      camera.position.y += (-mouseY*5 - camera.position.y)*.02;
+      camera.lookAt(scene.position);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  } catch(e) {
+    // WebGL selhalo — zobraz CSS fallback pozadí
+    document.getElementById('canvas3d').style.display = 'none';
+    document.getElementById('bgFallback').style.display = 'block';
+  }
 }
-geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-const mat = new THREE.PointsMaterial({ color: 0x3b82f6, size: 0.15, transparent: true, opacity: 0.6, sizeAttenuation: true });
-const particles = new THREE.Points(geo, mat);
-scene.add(particles);
-
-const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(12, 2), new THREE.MeshBasicMaterial({ color: 0x1e3a5f, wireframe: true, transparent: true, opacity: 0.15 }));
-sphere.position.set(25, -5, -10);
-scene.add(sphere);
-const sphere2 = new THREE.Mesh(new THREE.IcosahedronGeometry(6, 2), new THREE.MeshBasicMaterial({ color: 0x06b6d4, wireframe: true, transparent: true, opacity: 0.1 }));
-sphere2.position.set(-20, 10, -5);
-scene.add(sphere2);
-const grid = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), new THREE.MeshBasicMaterial({ color: 0x0d1422, wireframe: true, transparent: true, opacity: 0.2 }));
-grid.rotation.x = -Math.PI/3; grid.position.y = -20; grid.position.z = -10;
-scene.add(grid);
-
-let mouseX = 0, mouseY = 0;
-document.addEventListener('mousemove', e => { mouseX = (e.clientX/window.innerWidth-.5)*.5; mouseY = (e.clientY/window.innerHeight-.5)*.3; });
-
-let t = 0;
-function animate() {
-  requestAnimationFrame(animate);
-  t += 0.003;
-  particles.rotation.y = t*.05; particles.rotation.x = t*.02;
-  sphere.rotation.y = t*.3; sphere.rotation.x = t*.2;
-  sphere2.rotation.y = -t*.2; sphere2.rotation.z = t*.1;
-  camera.position.x += (mouseX*8 - camera.position.x)*.02;
-  camera.position.y += (-mouseY*5 - camera.position.y)*.02;
-  camera.lookAt(scene.position);
-  renderer.render(scene, camera);
-}
-animate();
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+initWebGL();
 
 const reveals = document.querySelectorAll('.reveal');
 const observer = new IntersectionObserver(entries => {
