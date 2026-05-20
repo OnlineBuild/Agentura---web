@@ -24,13 +24,16 @@
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; overflow-x: hidden; }
   body {
     background: var(--bg);
     color: var(--text);
     font-family: 'DM Mono', monospace;
-    overflow-x: hidden;
     cursor: none;
+  }
+  .page-wrapper {
+    overflow-x: hidden;
+    position: relative;
   }
 
   .cursor {
@@ -1422,6 +1425,7 @@
 <canvas id="canvas3d"></canvas>
 <div class="bg-fallback" id="bgFallback"></div>
 
+<div class="page-wrapper">
 <nav>
   <div class="logo">OB</div>
   <ul class="nav-links">
@@ -1823,6 +1827,7 @@
     <a href="Agentura - terms of service.html" class="footer-legal-link">OB Terms of Service</a>
   </div>
 </div>
+</div><!-- end page-wrapper -->
 
 <script>
 const cursor = document.getElementById('cursor');
@@ -1844,7 +1849,6 @@ document.querySelectorAll('a,button').forEach(el => {
 function initWebGL() {
   try {
     const canvas = document.getElementById('canvas3d');
-    // Test WebGL support
     const testCtx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     if (!testCtx) throw new Error('WebGL not supported');
 
